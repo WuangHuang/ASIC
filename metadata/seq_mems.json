@@ -1,0 +1,88 @@
+[
+  {
+    "module_name": "rockettile_dcache_data_arrays_0_ext",
+    "depth": 512,
+    "width": 256,
+    "masked": true,
+    "read": 0,
+    "write": 0,
+    "readwrite": 1,
+    "mask_granularity": 8,
+    "extra_ports": [],
+    "hierarchy": [
+      "ChipTop.system.tile_prci_domain_3.element_reset_domain_rockettile.dcache.data.rockettile_dcache_data_arrays_0.rockettile_dcache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_2.element_reset_domain_rockettile.dcache.data.rockettile_dcache_data_arrays_0.rockettile_dcache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_1.element_reset_domain_rockettile.dcache.data.rockettile_dcache_data_arrays_0.rockettile_dcache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.dcache.data.rockettile_dcache_data_arrays_0.rockettile_dcache_data_arrays_0_ext"
+    ]
+  },
+  {
+    "module_name": "rockettile_dcache_tag_array_ext",
+    "depth": 64,
+    "width": 88,
+    "masked": true,
+    "read": 0,
+    "write": 0,
+    "readwrite": 1,
+    "mask_granularity": 22,
+    "extra_ports": [],
+    "hierarchy": [
+      "ChipTop.system.tile_prci_domain_3.element_reset_domain_rockettile.dcache.rockettile_dcache_tag_array.rockettile_dcache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain_2.element_reset_domain_rockettile.dcache.rockettile_dcache_tag_array.rockettile_dcache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain_1.element_reset_domain_rockettile.dcache.rockettile_dcache_tag_array.rockettile_dcache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.dcache.rockettile_dcache_tag_array.rockettile_dcache_tag_array_ext"
+    ]
+  },
+  {
+    "module_name": "rockettile_icache_tag_array_ext",
+    "depth": 64,
+    "width": 84,
+    "masked": true,
+    "read": 0,
+    "write": 0,
+    "readwrite": 1,
+    "mask_granularity": 21,
+    "extra_ports": [],
+    "hierarchy": [
+      "ChipTop.system.tile_prci_domain_3.element_reset_domain_rockettile.frontend.icache.rockettile_icache_tag_array.rockettile_icache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain_2.element_reset_domain_rockettile.frontend.icache.rockettile_icache_tag_array.rockettile_icache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain_1.element_reset_domain_rockettile.frontend.icache.rockettile_icache_tag_array.rockettile_icache_tag_array_ext",
+      "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.frontend.icache.rockettile_icache_tag_array.rockettile_icache_tag_array_ext"
+    ]
+  },
+  {
+    "module_name": "rockettile_icache_data_arrays_0_ext",
+    "depth": 512,
+    "width": 128,
+    "masked": true,
+    "read": 0,
+    "write": 0,
+    "readwrite": 1,
+    "mask_granularity": 32,
+    "extra_ports": [],
+    "hierarchy": [
+      "ChipTop.system.tile_prci_domain_3.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_1.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_2.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_1.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_1.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_1.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_1.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_3.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_0.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_2.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_0.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain_1.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_0.rockettile_icache_data_arrays_0_ext",
+      "ChipTop.system.tile_prci_domain.element_reset_domain_rockettile.frontend.icache.rockettile_icache_data_arrays_0.rockettile_icache_data_arrays_0_ext"
+    ]
+  },
+  {
+    "module_name": "mem_ext",
+    "depth": 8192,
+    "width": 64,
+    "masked": true,
+    "read": 0,
+    "write": 0,
+    "readwrite": 1,
+    "mask_granularity": 8,
+    "extra_ports": [],
+    "hierarchy": [
+      "ChipTop.system.bank.ram.mem.mem_ext"
+    ]
+  }
+]
