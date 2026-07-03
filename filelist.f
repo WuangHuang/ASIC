@@ -3,7 +3,7 @@ AsyncResetReg.sv
 AsyncResetSynchronizerPrimitiveShiftReg_d3_i0.sv
 AsyncResetSynchronizerShiftReg_w1_d3_i0.sv
 ResetCatchAndSync_d3.sv
-ResetWrangler.sv
+// ResetWrangler.sv
 extern_modules.sv
 IntXbar_i6_o1.sv
 FixedClockBroadcast_7.sv
@@ -167,9 +167,9 @@ TLInterconnectCoupler_pbus_to_chacha.sv
 TLInterconnectCoupler_pbus_to_sha3.sv
 TLInterconnectCoupler_pbus_to_aes.sv
 TLInterconnectCoupler_pbus_to_ascon.sv
+TLInterconnectCoupler_pbus_to_ed25519.sv
 TLInterconnectCoupler_pbus_to_poly_0.sv
 TLInterconnectCoupler_pbus_to_trng_0.sv
-TLInterconnectCoupler_pbus_to_ecdsa_chipyardcipherecdsaECDSAID22ebccb9nextId.sv
 PeripheryBus_pbus.sv
 FixedClockBroadcast_5.sv
 TLXbar_cbus_in_i2_o1_a31d64s5k1z4u.sv
@@ -343,10 +343,10 @@ ClockSinkDomain_6.sv
 ClockSinkDomain_7.sv
 ClockSinkDomain_8.sv
 ClockSinkDomain_9.sv
+ClockSinkDomain_10.sv
 RingGenerator.sv
 RingOscillator.sv
 TRNGMMIOModule.sv
-ClockSinkDomain_10.sv
 ClockSinkDomain_11.sv
 TLXbar_prcibus_i1_o2_a21d64s5k1z3u.sv
 ClockGroupResetSynchronizer.sv
@@ -361,7 +361,7 @@ ClockGroupAggregator_allClocks.sv
 ClockGroupCombiner.sv
 DigitalTop.sv
 ChipTop.sv
-VC707Harness.sv
+// VC707Harness.sv
 rockettile_dcache_data_arrays_0.sv
 rockettile_dcache_tag_array.sv
 rockettile_icache_tag_array.sv

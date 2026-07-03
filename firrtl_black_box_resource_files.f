@@ -1,8 +1,8 @@
-./AnalogToUInt_1.v
+// ./AnalogToUInt_1.v
 ./GenericDigitalInIOCell.v
 ./GenericDigitalOutIOCell.v
-./PowerOnResetFPGAOnly.v
-./UIntToAnalog_1.v
+// ./PowerOnResetFPGAOnly.v
+// ./UIntToAnalog_1.v
 ./aes.v
 ./aes_core.v
 ./aes_decipher_block.v
@@ -15,17 +15,27 @@
 ./asconp.v
 ./asic_nand.v
 ./asic_not.v
+./bram_253.v
+./bram_255.v
+./bram_256.v
+./bram_512.v
 ./chacha.v
 ./chacha_core.v
 ./chacha_qr.v
-./ecdsa_block_v1.preprocessed.sv
+./ed25519_sign.v
+./ed25519_sign_core.v
 ./f_permutation.v
 ./fifo.v
 ./keccak.v
 ./keccak_wrapper.v
+./mult_units_512.v
 ./padder.v
 ./padder1.v
 ./plusarg_reader.v
 ./poly1305.preprocessed.v
+./precomp_rom.v
 ./rconst.v
 ./round.v
+./t_precomp.dat
+./x_precomp.dat
+./y_precomp.dat

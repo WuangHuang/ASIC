@@ -27,13 +27,13 @@
 
 // external module ascon
 
+// external module ed25519_sign
+
 // external module poly1305_core
 
 // external module asic_not
 
 // external module asic_nand
-
-// external module ecdsa_block
 
 // external module GenericDigitalInIOCell
 
