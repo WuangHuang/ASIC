@@ -184,7 +184,7 @@ sha512_wrap hw (
     .rst(rst),
     .hw_ena(hw_ena),
     .hw_ready(hw_ready),
-    .hw_error(hw_error),
+    .hw_error(),
     .hw_digest_valid(hw_digest_valid),
     .hw_digest(hw_digest),
     .hw_mode(hw_mode),
@@ -214,7 +214,7 @@ scalar_mult sm (
     .sm_ena(sm_ena),
     .scalar(sm_scalar),
     .sm_ready(sm_ready),
-    .sm_error(sm_error),
+    .sm_error(),
     .sm_comp_done(sm_comp_done),
     .sm_mult_out(sm_mult_out),
     .sm_mult_in_0(sm_mult_in_0),
@@ -251,7 +251,7 @@ bram_512 bram_1 (
 bram_256 bram_2 (
     .clk(clk),
     .we(bram_2_we),
-    .addr(bram_addr_new),
+    .addr(bram_addr_new[1:0]),
     .data_in(bram_2_data_in),
     .data_out(bram_2_data_out)
     );
@@ -259,7 +259,7 @@ bram_256 bram_2 (
 bram_256 bram_3 (
     .clk(clk),
     .we(bram_3_we),
-    .addr(bram_addr_new),
+    .addr(bram_addr_new[1:0]),
     .data_in(bram_3_data_in),
     .data_out(bram_3_data_out)
     );
@@ -3742,7 +3742,7 @@ bram_253 bram_c1 (
     .clk(clk),
     .we(we_bram_c1),
     .addr(1'b0),
-    .data_in(sub_out),
+    .data_in(sub_out[252:0]),
     .data_out(data_out_bram_c1)
     );
 
@@ -3750,7 +3750,7 @@ bram_253 bram_c2 (
     .clk(clk),
     .we(we_bram_c2),
     .addr(1'b0),
-    .data_in(sub_out),
+    .data_in(sub_out[252:0]),
     .data_out(data_out_bram_c2)
     );
 

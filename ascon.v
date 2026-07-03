@@ -43,7 +43,9 @@ module ascon
   wire [31:0] ascon_wr_data;
   wire [31:0] fifo2Ascon_data;
   wire [5:0] fifo_in_counter;
-
+  wire rd_en;
+  wire in_fifo_empty;
+  wire o_write_data;
 
     fifo fifo_in(
     .clk(i_clk),
