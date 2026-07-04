@@ -1,5 +1,7 @@
-AsyncResetRegVec_w13_i0.sv
-AsyncResetReg.sv
+// Canonical file list: generated RTL (compile order), hand-written blackbox
+// Verilog, and ROM data images. Retired entries are kept as // comments.
+// AsyncResetRegVec_w13_i0.sv (removed, harness-only)
+// AsyncResetReg.sv (removed, no longer instantiated)
 AsyncResetSynchronizerPrimitiveShiftReg_d3_i0.sv
 AsyncResetSynchronizerShiftReg_w1_d3_i0.sv
 ResetCatchAndSync_d3.sv
@@ -344,8 +346,8 @@ ClockSinkDomain_7.sv
 ClockSinkDomain_8.sv
 ClockSinkDomain_9.sv
 ClockSinkDomain_10.sv
-RingGenerator.sv
-RingOscillator.sv
+// RingGenerator.sv (inlined into TRNGMMIOModule.sv, moved to rm_dir/)
+// RingOscillator.sv (inlined into TRNGMMIOModule.sv, moved to rm_dir/)
 TRNGMMIOModule.sv
 ClockSinkDomain_11.sv
 TLXbar_prcibus_i1_o2_a21d64s5k1z3u.sv
@@ -360,7 +362,7 @@ ChipyardPRCICtrlClockSinkDomain.sv
 ClockGroupAggregator_allClocks.sv
 ClockGroupCombiner.sv
 DigitalTop.sv
-ChipTop.sv
+// ChipTop.sv
 // VC707Harness.sv
 rockettile_dcache_data_arrays_0.sv
 rockettile_dcache_tag_array.sv
@@ -368,3 +370,37 @@ rockettile_icache_tag_array.sv
 rockettile_icache_data_arrays_0.sv
 rockettile_icache_data_arrays_1.sv
 mem.sv
+
+// --- SRAM macro wrappers (see metadata/seq_mems.json) ---
+demoriscv.fpga.vc707.VC707Harness.NoCASICConfig.top.mems.v
+// demoriscv.fpga.vc707.VC707Harness.NoCASICConfig.model.mems.v (empty)
+
+// --- Hand-written blackbox Verilog (merged from firrtl_black_box_resource_files.f) ---
+aes.v
+ascon.v
+bram_253.v
+bram_255.v
+bram_256.v
+bram_512.v
+chacha.v
+chacha_core.v
+chacha_qr.v
+ed25519_sign.v
+ed25519_sign_core.v
+f_permutation.v
+fifo.v
+keccak.v
+keccak_wrapper.v
+mult_units_512.v
+padder.v
+padder1.v
+plusarg_reader.v
+poly1305.preprocessed.v
+precomp_rom.v
+rconst.v
+round.v
+
+// --- ROM data images (loaded via $readmemh, not compile units) ---
+// t_precomp.dat
+// x_precomp.dat
+// y_precomp.dat
