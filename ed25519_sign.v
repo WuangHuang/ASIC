@@ -327,9 +327,6 @@ always @* begin
 end
 
 always @* begin
-end
-
-always @* begin
     ena_set      = 1'b0;
 
     secret_0_we   = 1'b0;
