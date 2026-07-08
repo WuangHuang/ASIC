@@ -3,20 +3,21 @@ import re
 import shutil
 
 def map_modules_to_files(input_dir):
-  
     module_to_file = {}
     file_to_modules = {}
     module_regex = re.compile(r'\bmodule\s+(\w+)', re.MULTILINE)
 
     for root, dirs, files in os.walk(input_dir):
-        dirs[:] = [d for d in dirs if not d.endswith('_Merge')]
+        # Bỏ qua kho lưu trữ rác
+        dirs[:] = [d for d in dirs if d != 'rm_dir']
+        
         for file in files:
-            if file.lower().endswith(('.v', '.sv')):
+            # Không quét chính các file đã được Merged
+            if file.lower().endswith(('.v', '.sv')) and not file.endswith('_Merged.v') and not file.endswith('_Merged.sv'):
                 file_path = os.path.join(root, file)
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
                     
-                    # Giữ nguyên số dòng khi xóa comment
                     def preserve_newlines(match):
                         return '\n' * match.group(0).count('\n')
                     
@@ -34,10 +35,6 @@ def map_modules_to_files(input_dir):
     return module_to_file, file_to_modules
 
 def find_submodules(file_path, exclude_keywords):
-    """
-    Tìm module con và TRẢ VỀ CẢ SỐ DÒNG
-    Format trả về: { 'Tên_Module_Con': [dòng_1, dòng_2, ...] }
-    """
     submodules = {}
     if not file_path or not os.path.exists(file_path):
         return submodules
@@ -45,7 +42,6 @@ def find_submodules(file_path, exclude_keywords):
     with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
         content = f.read()
         
-        # Hàm giữ lại dấu xuống dòng để không làm lệch Line Number
         def preserve_newlines(match):
             return '\n' * match.group(0).count('\n')
             
@@ -57,7 +53,6 @@ def find_submodules(file_path, exclude_keywords):
         for match in inst_regex.finditer(content_no_comments):
             mod_name = match.group(1)
             if mod_name not in exclude_keywords:
-                # Tính toán số dòng bằng cách đếm số ký tự \n từ đầu file đến vị trí match
                 line_no = content_no_comments.count('\n', 0, match.start()) + 1
                 
                 if mod_name not in submodules:
@@ -83,18 +78,17 @@ def merge_digital_top_hierarchy(input_dir, top_module_name):
     top_file_path = mod_file_map[top_module_name]
     _, ext = os.path.splitext(top_file_path)
     
-    output_dir = os.path.join(input_dir, f"{top_module_name}_Merge")
-    submodules_dir = os.path.join(output_dir, "Submodules_Copy")
+    # --- CẤU TRÚC THƯ MỤC ---
+    output_dir = input_dir  
     output_file = os.path.join(output_dir, f"{top_module_name}_Merged{ext}")
-
+    
+    rm_dir = os.path.join(input_dir, "rm_dir")
+    submodules_dir = os.path.join(rm_dir, f"submodule_{top_module_name}")
     os.makedirs(submodules_dir, exist_ok=True)
 
     modules_to_process = [top_module_name]
     visited_files = set()
     files_to_merge = []
-    
-    # 🌟 TỪ ĐIỂN LƯU TRỮ VỊ TRÍ INSTANTIATION (KÈM DÒNG)
-    # Format: { 'SubMod': { 'ParentMod1': [line1, line2] } }
     instantiated_in = {}
 
     print(f"2. Bắt đầu phân tích phân cấp từ: {top_module_name}...")
@@ -122,19 +116,20 @@ def merge_digital_top_hierarchy(input_dir, top_module_name):
         outfile.write(f"// FILE TỔNG HỢP CÓ KIỂM DUYỆT CỦA: {top_module_name}\n")
         outfile.write("// ==========================================================\n\n")
 
-    print(f"\n3. TIẾN HÀNH GOM VÀ COPY (Tổng cộng {len(files_to_merge)} file)")
+    # TẬP HỢP THEO DÕI MODULE ĐÃ ĐƯỢC GỘP
+    merged_module_names = set()
+
+    print(f"\n3. TIẾN HÀNH GOM (Tổng cộng {len(files_to_merge)} file)")
     print("-" * 65)
     
     for file_path in files_to_merge:
         filename = os.path.basename(file_path)
         
-        # 🌟 TẠO CHUỖI HIỂN THỊ MODULE CHA VÀ SỐ DÒNG
         parents_info_list = []
         modules_in_this_file = file_mod_map.get(file_path, [])
         for mod in modules_in_this_file:
             if mod in instantiated_in:
                 for parent, lines in instantiated_in[mod].items():
-                    # Sắp xếp số dòng và xóa trùng lặp
                     lines_str = ", ".join(f"dòng {l}" for l in sorted(set(lines)))
                     parents_info_list.append(f"{parent} ({lines_str})")
                     
@@ -146,65 +141,135 @@ def merge_digital_top_hierarchy(input_dir, top_module_name):
         is_memory_file = any(keyword in filename.lower() for keyword in ['ram_', 'bram_', 'mem_'])
         
         if is_memory_file:
-            print(f"\n🧠 THÔNG BÁO: Phát hiện submodule BỘ NHỚ: {filename}")
+            print(f"\n🧠 BỘ NHỚ: Phát hiện submodule: {filename}")
             print(f"   📂 Nguồn: {file_path}")
             print(f"   {parent_info}")
-            
             while True:
-                choice = input(f"   👉 Đưa file này ra thư mục gốc (không gộp)? [y/n/q]: ").strip().lower()
+                choice = input(f"   👉 Di chuyển file này ra thư mục hiện tại (Không gộp)? [y/n/q]: ").strip().lower()
                 if choice in ['y', 'n', 'q']: break
-                print("   Vui lòng chỉ nhập 'y', 'n', hoặc 'q'.")
                 
-            if choice == 'q': return
-            elif choice == 'n':
-                print(f"   ⏭️  Đã BỎ QUA: {filename}")
-                continue
+            if choice == 'q': 
+                print("\n🛑 Dừng quá trình hỏi duyệt!"); break
+            elif choice == 'n': continue
             elif choice == 'y':
-                try:
-                    shutil.copy2(file_path, os.path.join(output_dir, filename))
-                    print(f"   ✅ Đã COPY thành công ra thư mục gốc.")
-                except Exception as e:
-                    print(f"   ❌ Lỗi: {e}")
+                target_mem_path = os.path.join(output_dir, filename)
+                if os.path.abspath(file_path) != os.path.abspath(target_mem_path):
+                    shutil.move(file_path, target_mem_path)
+                    print(f"   ✅ Đã di chuyển ra thư mục hiện tại.")
+                else:
+                    print(f"   ✅ File {filename} đã nằm sẵn ở thư mục hiện tại.")
                 continue 
                 
         else:
-            print(f"\n🔍 Đang chờ duyệt file LOGIC: {filename}")
+            print(f"\n🔍 LOGIC: Đang chờ duyệt file: {filename}")
             print(f"   📂 Nguồn: {file_path}")
             print(f"   {parent_info}")
-            
             while True:
-                choice = input("   👉 Bạn muốn Gộp & Copy file này? [y/n/q]: ").strip().lower()
+                choice = input("   👉 Bạn muốn Gộp file này? [y/n/q]: ").strip().lower()
                 if choice in ['y', 'n', 'q']: break
-                print("   Vui lòng chỉ nhập 'y', 'n', hoặc 'q'.")
                 
-            if choice == 'q': return
-            if choice == 'n':
-                print(f"   ⏭️  Đã BỎ QUA: {filename}")
-                continue
+            if choice == 'q': 
+                print("\n🛑 Dừng quá trình hỏi duyệt!"); break
+            if choice == 'n': continue
                 
             try:
-                shutil.copy2(file_path, os.path.join(submodules_dir, filename))
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as infile:
                     content = infile.read()
                     content = re.sub(r'^\s*`include\s+".+"', r'// \g<0> (Đã tắt do gom file)', content, flags=re.MULTILINE)
                 
                 with open(output_file, 'a', encoding='utf-8') as outfile:
-                    outfile.write(f"// --- START FILE: {filename} ---\n")
+                    outfile.write(f"// --- BẮT ĐẦU FILE: {filename} ---\n")
                     outfile.write(content)
-                    outfile.write(f"\n// --- END FILE: {filename} ---\n\n")
+                    outfile.write(f"\n// --- KẾT THÚC FILE: {filename} ---\n\n")
                     
-                print(f"   ✅ Đã GỘP thành công: {filename}")
+                merged_module_names.update(modules_in_this_file)
+                print(f"   ✅ Đã GỘP thành công!")
                 
             except Exception as e:
                 print(f"   ❌ Lỗi: {e}")
 
+    # =====================================================================
+    # BƯỚC 4: DỌN DẸP WORKSPACE & GHI NHẬN FILE BỊ DI CHUYỂN
+    # =====================================================================
+    print("\n" + "=" * 65)
+    print("4. DỌN DẸP WORKSPACE (Tìm & Cất đi các file/module trùng lặp)")
+    print("=" * 65)
+    
+    moved_count = 0
+    moved_to_rm_dir = set() # DANH SÁCH LƯU CÁC FILE ĐÃ ĐƯỢC CHUYỂN VÀO KHO
+    
+    for f_path, mods in file_mod_map.items():
+        intersect = set(mods).intersection(merged_module_names)
+        
+        if intersect:
+            fname = os.path.basename(f_path)
+            target_path = os.path.join(submodules_dir, fname)
+            
+            if os.path.exists(target_path) and os.path.abspath(f_path) != os.path.abspath(target_path):
+                base, ext = os.path.splitext(fname)
+                target_path = os.path.join(submodules_dir, f"{base}_dup_{moved_count}{ext}")
+            
+            if os.path.exists(f_path) and os.path.abspath(f_path) != os.path.abspath(target_path):
+                try:
+                    shutil.move(f_path, target_path)
+                    moved_to_rm_dir.add(fname) # Ghi chú file này đã bị cất
+                    print(f" 🧹 Đã di chuyển: {fname}")
+                    moved_count += 1
+                except Exception as e:
+                    print(f" ❌ Lỗi di chuyển {fname}: {e}")
+
+    # =====================================================================
+    # BƯỚC 5: CẬP NHẬT FILELIST.F
+    # =====================================================================
+    filelist_path = os.path.join(input_dir, "filelist.f")
+    if os.path.exists(filelist_path) and moved_to_rm_dir:
+        print("\n" + "=" * 65)
+        print("5. CẬP NHẬT TRẠNG THÁI TRONG FILELIST.F")
+        print("=" * 65)
+        
+        try:
+            with open(filelist_path, 'r', encoding='utf-8') as fl:
+                lines = fl.readlines()
+                
+            new_lines = []
+            updated_count = 0
+            
+            for line in lines:
+                clean_line = line.strip()
+                # Bỏ qua dòng trống hoặc những dòng đã bị comment hoàn toàn
+                if not clean_line or clean_line.startswith('//'):
+                    new_lines.append(line)
+                    continue
+                    
+                # Lấy tên file từ đường dẫn trong filelist (loại bỏ phần comment phía sau nếu có)
+                path_part = clean_line.split('//')[0].strip()
+                fname = os.path.basename(path_part)
+                
+                # Nếu file này nằm trong danh sách đã bị cất đi và chưa có tag "đã gom"
+                if fname in moved_to_rm_dir and "đã gom" not in line:
+                    # Loại bỏ ký tự xuống dòng ở cuối (dù là \n hay \r\n), sau đó gắn chuỗi vào
+                    new_lines.append(line.rstrip('\r\n') + " // đã gom\n")
+                    updated_count += 1
+                    print(f" 📝 Đánh dấu trong filelist: {fname}")
+                else:
+                    new_lines.append(line)
+                    
+            with open(filelist_path, 'w', encoding='utf-8') as fl:
+                fl.writelines(new_lines)
+                
+            print(f" ✅ Đã cập nhật trạng thái 'đã gom' cho {updated_count} file!")
+        except Exception as e:
+            print(f" ❌ Lỗi cập nhật filelist.f: {e}")
+
     print("-" * 65)
-    print(f"🎉 Hoàn tất!")
+    print(f"🎉 Hoàn tất toàn bộ quy trình!")
+    print(f" 📄 File tổng hợp RTL sẵn sàng biên dịch: {output_file}")
+    if moved_count > 0:
+        print(f" 📂 Đã cất {moved_count} file gốc/trùng lặp vào: {submodules_dir}")
 
 if __name__ == "__main__":
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-    
     INPUT_DIR = SCRIPT_DIR       
-    TOP_MODULE = "PeripheryBus_cbus"     
+    TOP_MODULE = "DigitalTop"     
     
     merge_digital_top_hierarchy(INPUT_DIR, TOP_MODULE)

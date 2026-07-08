@@ -2,19 +2,16 @@
 // FILE TỔNG HỢP CÓ KIỂM DUYỆT CỦA: chacha
 // ==========================================================
 
-// --- START FILE: chacha_qr.v ---
+// --- BẮT ĐẦU FILE: chacha.v ---
 //======================================================================
 //
-// chacha_qr.v
-// -----------
-// Verilog 2001 implementation of the stream cipher ChaCha.
-// This is the combinational QR logic as a separade module to allow
-// us to build versions of the cipher with 1, 2, 4 and even 8
-// parallel qr functions.
+// chacha.v
+// --------
+// Top level wrapper for the ChaCha stream, cipher core providing
+// a simple memory like interface with 32 bit data access.
 //
 //
-// Copyright (c) 2013 Secworks Sweden AB
-// All rights reserved.
+// Copyright (c) 2013  Secworks Sweden AB
 //
 // Redistribution and use in source and binary forms, with or
 // without modification, are permitted provided that the following
@@ -45,85 +42,253 @@
 
 // `default_nettype none
 
-module chacha_qr(
-                 input wire [31 : 0]  a,
-                 input wire [31 : 0]  b,
-                 input wire [31 : 0]  c,
-                 input wire [31 : 0]  d,
+module chacha(
+              input wire           clk,
+              input wire           reset,     // modded for rocketchip, active "high"
+              input wire           cs,
+              input wire           we,
+              input wire [7 : 0]   addr,
+              input wire [31 : 0]  write_data,
+              output wire [31 : 0] read_data
+             );
 
-                 output wire [31 : 0] a_prim,
-                 output wire [31 : 0] b_prim,
-                 output wire [31 : 0] c_prim,
-                 output wire [31 : 0] d_prim
-                );
+  //----------------------------------------------------------------
+  // Internal constant and parameter definitions.
+  //----------------------------------------------------------------
+  localparam ADDR_NAME0       = 8'h00;
+  localparam ADDR_NAME1       = 8'h01;
+  localparam ADDR_VERSION     = 8'h02;
+
+  localparam ADDR_CTRL        = 8'h08;
+  localparam CTRL_INIT_BIT    = 0;
+  localparam CTRL_NEXT_BIT    = 1;
+
+  localparam ADDR_STATUS      = 8'h09;
+  localparam STATUS_READY_BIT = 0;
+
+  localparam ADDR_KEYLEN      = 8'h0a;
+  localparam KEYLEN_BIT       = 0;
+  localparam ADDR_ROUNDS      = 8'h0b;
+  localparam ROUNDS_HIGH_BIT  = 4;
+  localparam ROUNDS_LOW_BIT   = 0;
+
+  localparam ADDR_KEY0        = 8'h10;
+  localparam ADDR_KEY7        = 8'h17;
+
+  localparam ADDR_IV0         = 8'h20;
+  localparam ADDR_IV1         = 8'h21;
+
+  localparam ADDR_DATA_IN0    = 8'h40;
+  localparam ADDR_DATA_IN15   = 8'h4f;
+
+  localparam ADDR_DATA_OUT0   = 8'h80;
+  localparam ADDR_DATA_OUT15  = 8'h8f;
+
+  localparam CORE_NAME0       = 32'h63686163; // "chac"
+  localparam CORE_NAME1       = 32'h68612020; // "ha  "
+  localparam CORE_VERSION     = 32'h302e3830; // "0.80"
+
+  localparam DEFAULT_CTR_INIT = 64'h0;
+
+
+  //----------------------------------------------------------------
+  // Registers including update variables and write enable.
+  //----------------------------------------------------------------
+  reg          init_reg;
+  reg          init_new;
+  reg          next_reg;
+  reg          next_new;
+
+  reg          keylen_reg;
+  reg          keylen_we;
+
+  reg [4 : 0]  rounds_reg;
+  reg          rounds_we;
+
+  reg [31 : 0] key_reg [0 : 7];
+  reg          key_we;
+
+  reg [31 : 0] iv_reg[0 : 1];
+  reg          iv_we;
+
+  reg [31 : 0] data_in_reg [0 : 15];
+  reg          data_in_we;
+
 
   //----------------------------------------------------------------
   // Wires.
   //----------------------------------------------------------------
-  reg [31 : 0] internal_a_prim;
-  reg [31 : 0] internal_b_prim;
-  reg [31 : 0] internal_c_prim;
-  reg [31 : 0] internal_d_prim;
+  wire [255 : 0] core_key;
+  wire [63 : 0]  core_iv;
+  wire           core_ready;
+  wire [511 : 0] core_data_in;
+  wire [511 : 0] core_data_out;
+  wire           core_data_out_valid;
+
+  wire           reset_n;       // modded for rocketchip, active "high"
+
+  reg [31 : 0]   tmp_read_data;
 
 
   //----------------------------------------------------------------
-  // Concurrent connectivity for ports.
+  // Concurrent connectivity for ports etc.
   //----------------------------------------------------------------
-  assign a_prim = internal_a_prim;
-  assign b_prim = internal_b_prim;
-  assign c_prim = internal_c_prim;
-  assign d_prim = internal_d_prim;
+  assign core_key     = {key_reg[0], key_reg[1], key_reg[2], key_reg[3],
+                         key_reg[4], key_reg[5], key_reg[6], key_reg[7]};
+
+  assign core_iv      = {iv_reg[0], iv_reg[1]};
+
+  assign core_data_in = {data_in_reg[00], data_in_reg[01], data_in_reg[02], data_in_reg[03],
+                         data_in_reg[04], data_in_reg[05], data_in_reg[06], data_in_reg[07],
+                         data_in_reg[08], data_in_reg[09], data_in_reg[10], data_in_reg[11],
+                         data_in_reg[12], data_in_reg[13], data_in_reg[14], data_in_reg[15]};
+
+  assign read_data     = tmp_read_data;
+
+  assign reset_n = !(reset);    // modded for rocketchip, active "high"
+
+  //----------------------------------------------------------------
+  // core instantiation.
+  //----------------------------------------------------------------
+  chacha_core core (
+                    .clk(clk),
+                    .reset_n(reset_n),
+                    .init(init_reg),
+                    .next(next_reg),
+                    .key(core_key),
+                    .keylen(keylen_reg),
+                    .iv(core_iv),
+                    .ctr(DEFAULT_CTR_INIT),
+                    .rounds(rounds_reg),
+                    .data_in(core_data_in),
+                    .ready(core_ready),
+                    .data_out(core_data_out),
+                    .data_out_valid(core_data_out_valid)
+                   );
 
 
   //----------------------------------------------------------------
-  // qr
+  // reg_update
   //
-  // The actual quarterround function.
+  // Update functionality for all registers in the core.
+  // All registers are positive edge triggered with asynchronous
+  // active low reset. All registers have write enable.
+  //----------------------------------------------------------------
+  always @ (posedge clk)
+    begin : reg_update
+     integer i;
+      if (!reset_n)
+        begin
+          init_reg   <= 0;
+          next_reg   <= 0;
+          keylen_reg <= 0;
+          rounds_reg <= 5'h0;
+          iv_reg[0]  <= 32'h0;
+          iv_reg[1]  <= 32'h0;
+
+          for (i = 0 ; i < 8 ; i = i + 1)
+            key_reg[i] <= 32'h0;
+
+          for (i = 0 ; i < 16 ; i = i + 1)
+            data_in_reg[i] <= 32'h0;
+        end
+      else
+        begin
+          init_reg <= init_new;
+          next_reg <= next_new;
+
+          if (keylen_we)
+            keylen_reg <= write_data[KEYLEN_BIT];
+
+          if (rounds_we)
+            rounds_reg <= write_data[ROUNDS_HIGH_BIT : ROUNDS_LOW_BIT];
+
+          if (key_we)
+            key_reg[addr[2 : 0]] <= write_data;
+
+          if (iv_we)
+            iv_reg[addr[0]] <= write_data;
+
+          if (data_in_we)
+            data_in_reg[addr[3 : 0]] <= write_data;
+        end
+    end // reg_update
+
+
+  //----------------------------------------------------------------
+  // Address decoder logic.
   //----------------------------------------------------------------
   always @*
-    begin : qr
-      reg [31 : 0] a0;
-      reg [31 : 0] a1;
+    begin : addr_decoder
+      keylen_we     = 1'h0;
+      rounds_we     = 1'h0;
+      key_we        = 1'h0;
+      iv_we         = 1'h0;
+      data_in_we    = 1'h0;
+      init_new      = 1'h0;
+      next_new      = 1'h0;
+      tmp_read_data = 32'h0;
 
-      reg [31 : 0] b0;
-      reg [31 : 0] b1;
-      reg [31 : 0] b2;
-      reg [31 : 0] b3;
+      if (cs)
+        begin
+          if (we)
+            begin
+              if (addr == ADDR_CTRL)
+                begin
+                  init_new = write_data[CTRL_INIT_BIT];
+                  next_new = write_data[CTRL_NEXT_BIT];
+                end
 
-      reg [31 : 0] c0;
-      reg [31 : 0] c1;
+              if (addr == ADDR_KEYLEN)
+                keylen_we = 1;
 
-      reg [31 : 0] d0;
-      reg [31 : 0] d1;
-      reg [31 : 0] d2;
-      reg [31 : 0] d3;
+              if (addr == ADDR_ROUNDS)
+                rounds_we = 1;
 
-      a0 = a + b;
-      d0 = d ^ a0;
-      d1 = {d0[15 : 0], d0[31 : 16]};
-      c0 = c + d1;
-      b0 = b ^ c0;
-      b1 = {b0[19 : 0], b0[31 : 20]};
-      a1 = a0 + b1;
-      d2 = d1 ^ a1;
-      d3 = {d2[23 : 0], d2[31 : 24]};
-      c1 = c0 + d3;
-      b2 = b1 ^ c1;
-      b3 = {b2[24 : 0], b2[31 : 25]};
+              if ((addr >= ADDR_KEY0) && (addr <= ADDR_KEY7))
+                key_we = 1;
 
-      internal_a_prim = a1;
-      internal_b_prim = b3;
-      internal_c_prim = c1;
-      internal_d_prim = d3;
-    end // qr
-endmodule // chacha_qr
+              if ((addr >= ADDR_IV0) && (addr <= ADDR_IV1))
+                iv_we = 1;
+
+              if ((addr >= ADDR_DATA_IN0) && (addr <= ADDR_DATA_IN15))
+                data_in_we = 1;
+
+            end // if (we)
+
+          else
+            begin
+              if ((addr >= ADDR_KEY0) && (addr <= ADDR_KEY7))
+                tmp_read_data = key_reg[addr[2 : 0]];
+
+              if ((addr >= ADDR_DATA_OUT0) && (addr <= ADDR_DATA_OUT15))
+                tmp_read_data = core_data_out[(15 - (addr - ADDR_DATA_OUT0)) * 32 +: 32];
+
+              case (addr)
+                ADDR_NAME0:   tmp_read_data = CORE_NAME0;
+                ADDR_NAME1:   tmp_read_data = CORE_NAME1;
+                ADDR_VERSION: tmp_read_data = CORE_VERSION;
+                ADDR_CTRL:    tmp_read_data = {30'h0, next_reg, init_reg};
+                ADDR_STATUS:  tmp_read_data = {30'h0, core_data_out_valid, core_ready};
+                ADDR_KEYLEN:  tmp_read_data = {31'h0, keylen_reg};
+                ADDR_ROUNDS:  tmp_read_data = {27'h0, rounds_reg};
+                ADDR_IV0:     tmp_read_data = iv_reg[0];
+                ADDR_IV1:     tmp_read_data = iv_reg[1];
+
+                default:
+                  begin
+                  end
+              endcase // case (address)
+            end
+        end
+    end // addr_decoder
+endmodule // chacha
 
 //======================================================================
-// EOF chacha_qr.v
+// EOF chacha.v
 //======================================================================
-// --- END FILE: chacha_qr.v ---
 
-// --- START FILE: chacha_core.v ---
+
 //======================================================================
 //
 // chacha_core.v
@@ -833,18 +998,19 @@ endmodule // chacha_core
 //======================================================================
 // EOF chacha_core.v
 //======================================================================
-// --- END FILE: chacha_core.v ---
 
-// --- START FILE: chacha.v ---
 //======================================================================
 //
-// chacha.v
-// --------
-// Top level wrapper for the ChaCha stream, cipher core providing
-// a simple memory like interface with 32 bit data access.
+// chacha_qr.v
+// -----------
+// Verilog 2001 implementation of the stream cipher ChaCha.
+// This is the combinational QR logic as a separade module to allow
+// us to build versions of the cipher with 1, 2, 4 and even 8
+// parallel qr functions.
 //
 //
-// Copyright (c) 2013  Secworks Sweden AB
+// Copyright (c) 2013 Secworks Sweden AB
+// All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or
 // without modification, are permitted provided that the following
@@ -875,253 +1041,81 @@ endmodule // chacha_core
 
 // `default_nettype none
 
-module chacha(
-              input wire           clk,
-              input wire           reset,     // modded for rocketchip, active "high"
-              input wire           cs,
-              input wire           we,
-              input wire [7 : 0]   addr,
-              input wire [31 : 0]  write_data,
-              output wire [31 : 0] read_data
-             );
+module chacha_qr(
+                 input wire [31 : 0]  a,
+                 input wire [31 : 0]  b,
+                 input wire [31 : 0]  c,
+                 input wire [31 : 0]  d,
 
-  //----------------------------------------------------------------
-  // Internal constant and parameter definitions.
-  //----------------------------------------------------------------
-  localparam ADDR_NAME0       = 8'h00;
-  localparam ADDR_NAME1       = 8'h01;
-  localparam ADDR_VERSION     = 8'h02;
-
-  localparam ADDR_CTRL        = 8'h08;
-  localparam CTRL_INIT_BIT    = 0;
-  localparam CTRL_NEXT_BIT    = 1;
-
-  localparam ADDR_STATUS      = 8'h09;
-  localparam STATUS_READY_BIT = 0;
-
-  localparam ADDR_KEYLEN      = 8'h0a;
-  localparam KEYLEN_BIT       = 0;
-  localparam ADDR_ROUNDS      = 8'h0b;
-  localparam ROUNDS_HIGH_BIT  = 4;
-  localparam ROUNDS_LOW_BIT   = 0;
-
-  localparam ADDR_KEY0        = 8'h10;
-  localparam ADDR_KEY7        = 8'h17;
-
-  localparam ADDR_IV0         = 8'h20;
-  localparam ADDR_IV1         = 8'h21;
-
-  localparam ADDR_DATA_IN0    = 8'h40;
-  localparam ADDR_DATA_IN15   = 8'h4f;
-
-  localparam ADDR_DATA_OUT0   = 8'h80;
-  localparam ADDR_DATA_OUT15  = 8'h8f;
-
-  localparam CORE_NAME0       = 32'h63686163; // "chac"
-  localparam CORE_NAME1       = 32'h68612020; // "ha  "
-  localparam CORE_VERSION     = 32'h302e3830; // "0.80"
-
-  localparam DEFAULT_CTR_INIT = 64'h0;
-
-
-  //----------------------------------------------------------------
-  // Registers including update variables and write enable.
-  //----------------------------------------------------------------
-  reg          init_reg;
-  reg          init_new;
-  reg          next_reg;
-  reg          next_new;
-
-  reg          keylen_reg;
-  reg          keylen_we;
-
-  reg [4 : 0]  rounds_reg;
-  reg          rounds_we;
-
-  reg [31 : 0] key_reg [0 : 7];
-  reg          key_we;
-
-  reg [31 : 0] iv_reg[0 : 1];
-  reg          iv_we;
-
-  reg [31 : 0] data_in_reg [0 : 15];
-  reg          data_in_we;
-
+                 output wire [31 : 0] a_prim,
+                 output wire [31 : 0] b_prim,
+                 output wire [31 : 0] c_prim,
+                 output wire [31 : 0] d_prim
+                );
 
   //----------------------------------------------------------------
   // Wires.
   //----------------------------------------------------------------
-  wire [255 : 0] core_key;
-  wire [63 : 0]  core_iv;
-  wire           core_ready;
-  wire [511 : 0] core_data_in;
-  wire [511 : 0] core_data_out;
-  wire           core_data_out_valid;
-
-  wire           reset_n;       // modded for rocketchip, active "high"
-
-  reg [31 : 0]   tmp_read_data;
+  reg [31 : 0] internal_a_prim;
+  reg [31 : 0] internal_b_prim;
+  reg [31 : 0] internal_c_prim;
+  reg [31 : 0] internal_d_prim;
 
 
   //----------------------------------------------------------------
-  // Concurrent connectivity for ports etc.
+  // Concurrent connectivity for ports.
   //----------------------------------------------------------------
-  assign core_key     = {key_reg[0], key_reg[1], key_reg[2], key_reg[3],
-                         key_reg[4], key_reg[5], key_reg[6], key_reg[7]};
-
-  assign core_iv      = {iv_reg[0], iv_reg[1]};
-
-  assign core_data_in = {data_in_reg[00], data_in_reg[01], data_in_reg[02], data_in_reg[03],
-                         data_in_reg[04], data_in_reg[05], data_in_reg[06], data_in_reg[07],
-                         data_in_reg[08], data_in_reg[09], data_in_reg[10], data_in_reg[11],
-                         data_in_reg[12], data_in_reg[13], data_in_reg[14], data_in_reg[15]};
-
-  assign read_data     = tmp_read_data;
-
-  assign reset_n = !(reset);    // modded for rocketchip, active "high"
-
-  //----------------------------------------------------------------
-  // core instantiation.
-  //----------------------------------------------------------------
-  chacha_core core (
-                    .clk(clk),
-                    .reset_n(reset_n),
-                    .init(init_reg),
-                    .next(next_reg),
-                    .key(core_key),
-                    .keylen(keylen_reg),
-                    .iv(core_iv),
-                    .ctr(DEFAULT_CTR_INIT),
-                    .rounds(rounds_reg),
-                    .data_in(core_data_in),
-                    .ready(core_ready),
-                    .data_out(core_data_out),
-                    .data_out_valid(core_data_out_valid)
-                   );
+  assign a_prim = internal_a_prim;
+  assign b_prim = internal_b_prim;
+  assign c_prim = internal_c_prim;
+  assign d_prim = internal_d_prim;
 
 
   //----------------------------------------------------------------
-  // reg_update
+  // qr
   //
-  // Update functionality for all registers in the core.
-  // All registers are positive edge triggered with asynchronous
-  // active low reset. All registers have write enable.
-  //----------------------------------------------------------------
-  always @ (posedge clk)
-    begin : reg_update
-     integer i;
-      if (!reset_n)
-        begin
-          init_reg   <= 0;
-          next_reg   <= 0;
-          keylen_reg <= 0;
-          rounds_reg <= 5'h0;
-          iv_reg[0]  <= 32'h0;
-          iv_reg[1]  <= 32'h0;
-
-          for (i = 0 ; i < 8 ; i = i + 1)
-            key_reg[i] <= 32'h0;
-
-          for (i = 0 ; i < 16 ; i = i + 1)
-            data_in_reg[i] <= 32'h0;
-        end
-      else
-        begin
-          init_reg <= init_new;
-          next_reg <= next_new;
-
-          if (keylen_we)
-            keylen_reg <= write_data[KEYLEN_BIT];
-
-          if (rounds_we)
-            rounds_reg <= write_data[ROUNDS_HIGH_BIT : ROUNDS_LOW_BIT];
-
-          if (key_we)
-            key_reg[addr[2 : 0]] <= write_data;
-
-          if (iv_we)
-            iv_reg[addr[0]] <= write_data;
-
-          if (data_in_we)
-            data_in_reg[addr[3 : 0]] <= write_data;
-        end
-    end // reg_update
-
-
-  //----------------------------------------------------------------
-  // Address decoder logic.
+  // The actual quarterround function.
   //----------------------------------------------------------------
   always @*
-    begin : addr_decoder
-      keylen_we     = 1'h0;
-      rounds_we     = 1'h0;
-      key_we        = 1'h0;
-      iv_we         = 1'h0;
-      data_in_we    = 1'h0;
-      init_new      = 1'h0;
-      next_new      = 1'h0;
-      tmp_read_data = 32'h0;
+    begin : qr
+      reg [31 : 0] a0;
+      reg [31 : 0] a1;
 
-      if (cs)
-        begin
-          if (we)
-            begin
-              if (addr == ADDR_CTRL)
-                begin
-                  init_new = write_data[CTRL_INIT_BIT];
-                  next_new = write_data[CTRL_NEXT_BIT];
-                end
+      reg [31 : 0] b0;
+      reg [31 : 0] b1;
+      reg [31 : 0] b2;
+      reg [31 : 0] b3;
 
-              if (addr == ADDR_KEYLEN)
-                keylen_we = 1;
+      reg [31 : 0] c0;
+      reg [31 : 0] c1;
 
-              if (addr == ADDR_ROUNDS)
-                rounds_we = 1;
+      reg [31 : 0] d0;
+      reg [31 : 0] d1;
+      reg [31 : 0] d2;
+      reg [31 : 0] d3;
 
-              if ((addr >= ADDR_KEY0) && (addr <= ADDR_KEY7))
-                key_we = 1;
+      a0 = a + b;
+      d0 = d ^ a0;
+      d1 = {d0[15 : 0], d0[31 : 16]};
+      c0 = c + d1;
+      b0 = b ^ c0;
+      b1 = {b0[19 : 0], b0[31 : 20]};
+      a1 = a0 + b1;
+      d2 = d1 ^ a1;
+      d3 = {d2[23 : 0], d2[31 : 24]};
+      c1 = c0 + d3;
+      b2 = b1 ^ c1;
+      b3 = {b2[24 : 0], b2[31 : 25]};
 
-              if ((addr >= ADDR_IV0) && (addr <= ADDR_IV1))
-                iv_we = 1;
-
-              if ((addr >= ADDR_DATA_IN0) && (addr <= ADDR_DATA_IN15))
-                data_in_we = 1;
-
-            end // if (we)
-
-          else
-            begin
-              if ((addr >= ADDR_KEY0) && (addr <= ADDR_KEY7))
-                tmp_read_data = key_reg[addr[2 : 0]];
-
-              if ((addr >= ADDR_DATA_OUT0) && (addr <= ADDR_DATA_OUT15))
-                tmp_read_data = core_data_out[(15 - (addr - ADDR_DATA_OUT0)) * 32 +: 32];
-
-              case (addr)
-                ADDR_NAME0:   tmp_read_data = CORE_NAME0;
-                ADDR_NAME1:   tmp_read_data = CORE_NAME1;
-                ADDR_VERSION: tmp_read_data = CORE_VERSION;
-                ADDR_CTRL:    tmp_read_data = {30'h0, next_reg, init_reg};
-                ADDR_STATUS:  tmp_read_data = {30'h0, core_data_out_valid, core_ready};
-                ADDR_KEYLEN:  tmp_read_data = {31'h0, keylen_reg};
-                ADDR_ROUNDS:  tmp_read_data = {27'h0, rounds_reg};
-                ADDR_IV0:     tmp_read_data = iv_reg[0];
-                ADDR_IV1:     tmp_read_data = iv_reg[1];
-
-                default:
-                  begin
-                  end
-              endcase // case (address)
-            end
-        end
-    end // addr_decoder
-endmodule // chacha
+      internal_a_prim = a1;
+      internal_b_prim = b3;
+      internal_c_prim = c1;
+      internal_d_prim = d3;
+    end // qr
+endmodule // chacha_qr
 
 //======================================================================
-// EOF chacha.v
+// EOF chacha_qr.v
 //======================================================================
+// --- KẾT THÚC FILE: chacha.v ---
 
-
-//======================================================================
-// EOF chacha_core.v
-//======================================================================
