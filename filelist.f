@@ -372,6 +372,10 @@ rockettile_icache_data_arrays_1.sv
 mem.sv
 
 // --- SRAM macro wrappers (see metadata/seq_mems.json) ---
+// Wrappers now instantiate foundry SRAM hard macros (RSPB18_512X32M4_G1,
+// RSPB18_128X24M4_G1, RSPB18_8KX32M16_G1) — no Verilog model in this repo,
+// so check.sh reports them as missing modules (expected). The behavioral
+// split_* modules were moved to rm_dir/.
 demoriscv.fpga.vc707.VC707Harness.NoCASICConfig.top.mems.v
 // demoriscv.fpga.vc707.VC707Harness.NoCASICConfig.model.mems.v (empty)
 
